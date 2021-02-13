@@ -1,0 +1,20 @@
+{
+	"name": "sadee/dispatch-system",
+	"description": "Order dispatch to couriers",
+	"type": "composer-plugin",
+	"license": "MIT",
+	"authors": [{
+		"name": "S.Kaushalye",
+		"email": "skm@nada.com"
+	}],
+	"minimum-stability": "dev",
+	"require": {
+		"php": ">=7.0.0"
+	},
+	"autoload": {
+		"psr-0": {
+			"Dispatch": "src/"
+		}
+	}
+}
+
