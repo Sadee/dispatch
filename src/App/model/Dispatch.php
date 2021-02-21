@@ -1,21 +1,49 @@
 <?php
 
 
-namespace Dispatch;
+namespace App;
 
-use \Dispatch\Consignment;
+use App\Consignment;
+use App\Notification;
+use Mail\MailTrigger;
 use mysql_xdevapi\Collection;
 
 /**
- * Class Dispatch
- * @package Dispatch
+ * Class App
+ * @package App
  */
 class Dispatch
 {
     /**
+     * @var string
+     */
+    private static $dispatchPeriodStart = '08:00:00';
+
+    /**
+     * @var string
+     */
+    private static $dispatchPeriodEnd = '18:00:00';
+
+    /**
      * @var Collection
      */
     private $awaiting_orders;
+
+    /**
+     * @return Collection
+     */
+    public function getAwaitingOrders(): Collection
+    {
+        return $this->awaiting_orders;
+    }
+
+    /**
+     * @param Collection $awaiting_orders
+     */
+    public function setAwaitingOrders(Collection $awaiting_orders)
+    {
+        $this->awaiting_orders = $awaiting_orders;
+    }
 
     /**
      * This will be calling from automated task (cron)
@@ -24,10 +52,12 @@ class Dispatch
     public function startDispatchPeriod()
     {
         try {
-            $this->collectAwaitingOrders();
+            $this->setAwaitingOrders($this->collectAwaitingOrders());
             $this->createConsignmentsForAwaiting();
         } catch(\Exception $e){
             // Generate email to the office to alert what went wrong while running automated task
+            Notification::sendNotification("App period not started!", 'Error: '.$e->getMessage()
+                .' File:'.$e->getFile().' Line:'.$e->getLine());
         }
     }
 
@@ -37,6 +67,8 @@ class Dispatch
     private function collectAwaitingOrders()
     {
         // Assign value to $this->awaiting_orders;
+        $orders = new Orders();
+        return $orders->waitingForDispatch(self::$dispatchPeriodStart);
     }
 
     /**
@@ -44,9 +76,8 @@ class Dispatch
      */
     private function createConsignmentsForAwaiting()
     {
-        $consignment = new Consignment();
-        foreach($this->awaiting_orders as $order){
-            $consignment->createConsignment($order);
+        foreach($this->getAwaitingOrders() as $order){
+            $this->addConsignment($order);
         }
     }
 
@@ -59,14 +90,15 @@ class Dispatch
         try {
             $couriers = $this->getAllCouriers();
             foreach($couriers as $courier){
-                $courier->transferBatchData();
+                $courier->sendDispatchData();
             }
             $this->updateDispatchDetails();
         } catch(\Exception $e){
             // Generate email to the office to alert what went wrong while running automated task
+            Notification::sendNotification("Error in dispatch period ending", 'Error: '.$e->getMessage()
+                .' File:'.$e->getFile().' Line:'.$e->getLine());
         }
     }
-
 
     /**
      * Returns all available couriers
@@ -84,22 +116,19 @@ class Dispatch
      */
     private function updateDispatchDetails()
     {
-
+        // Update database as set order's status as dispatched
     }
 
     /**
      * Update couriers dispatch batch file/Dataset wile placing an Order each time within dispatch period
      * @param Order $order
+     * @return bool
      * @throws \Exception
      */
     public function addConsignment(Order $order)
     {
-        try {
-            $consignment = new Consignment();
-            $consignment->createConsignment($order);
-        } catch(\Exception $e){
-            // Generate email to the office to alert
-            throw new \Exception("Error: ".$e->getMessage());
-        }
+        $consignment = new Consignment();
+        return $consignment->createConsignment($order);
     }
+
 }

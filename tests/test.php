@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use \Dispatch\Dispatch;
+use \App\Dispatch;
 
 $dc = new Dispatch();
 

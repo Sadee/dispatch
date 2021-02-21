@@ -1,13 +1,14 @@
 <?php
 
 
-namespace Dispatch;
+namespace App;
 
-use Order;
-use OrderItem;
-use Product;
-use ProductVariant;
-use Dispatch\Dx;
+use App\Order;
+use App\OrderItem;
+use App\Product;
+use App\ProductVariant;
+use App\Dx;
+use App\Notification;
 
 class Consignment
 {
@@ -30,26 +31,36 @@ class Consignment
     private $total_weight;
 
     /**
-     * Totals number of parcels in a consignment
-     * @var int
-     */
-    private $total_parcels;
-
-    /**
      * @var Courier|null
      */
     private $courier = null;
 
     /**
-     * Making consignment for given Order
-     * @param Order $order
+     * Get the consignment items details
+     * Calling from Courier
+     * @return mixed
      */
-    public function createConsignment(Order $order)
+    public function getItems()
     {
-        $this->setOrder($order);
-        $this->prepareConsignment();
-        $this->updateCourierBatchFile();
-        $this->save();
+        return $this->items;
+    }
+
+    /**
+     * Get delivery data
+     * Calling from Courier
+     * @return mixed
+     */
+    public function getDeliveryDetails()
+    {
+        return $this->order->delivery();
+    }
+
+    /**
+     * @return Order
+     */
+    public function getOrder(): Order
+    {
+        return $this->order;
     }
 
     /**
@@ -59,6 +70,25 @@ class Consignment
     private function setOrder(Order $order)
     {
         $this->order = $order;
+    }
+
+    /**
+     * Making consignment for given Order
+     * @param Order $order
+     * @return bool
+     */
+    public function createConsignment(Order $order)
+    {
+        $this->setOrder($order);
+        $this->prepareConsignment();
+        if($this->updateCourierBatchFile()) {
+            $this->save();
+            return true;
+        } else {
+            // Generate email to the office to alert batch file did not update
+            Notification::sendNotification("Dispatch batch file did not update!", 'Dispatch batch file did not update!');
+            return false;
+        }
     }
 
     /**
@@ -78,25 +108,25 @@ class Consignment
      */
     private function extractItemDetailsOfOrder()
     {
-        foreach($this->order->items as $item){
+        foreach($this->getOrder()->orderItems as $item){
             $this->items[] = $this->getItemDetails($item);
         }
     }
 
     /**
      * Get each item's data from order
-     * @param OrderItem $item
+     * @param OrderItems $item
      * @return array
      */
-    private function getItemDetails(OrderItem $item)
+    private function getItemDetails(OrderItems $item)
     {
         return [
-            'code' => $item->getCode(),
-            'quantity' => $item->getQuantity(),
-            'weight' => $item->getWeight(),
-            'width' => $item->getWidth(),
-            'height' => $item->getHeight(),
-            'depth' => $item->getDepth(),
+            'code' => $item->product->sku_code,
+            'quantity' => $item->quantity,
+            'weight' => $item->product->weight,
+            'width' => $item->product->width,
+            'height' => $item->product->height,
+            'depth' => $item->product->depth,
             ];
     }
 
@@ -109,7 +139,7 @@ class Consignment
         foreach($this->items as $k=>$i){
             $this->total_weight += $i['weight'];
         }
-        $this->total_parcels = ($k+1);
+        $total_parcels = ($k+1);
     }
 
     /**
@@ -120,6 +150,7 @@ class Consignment
     private function setCourier()
     {
         // In here I have assigned Dx;
+        // TODO the logic of assigning a particular courier from a list is goes here
         $this->courier = new Dx();
     }
 
@@ -128,7 +159,8 @@ class Consignment
      */
     private function save()
     {
-
+        // Update database if required
+        // Send notification to the staff if required
     }
 
     /**
@@ -136,29 +168,7 @@ class Consignment
      */
     private function updateCourierBatchFile()
     {
-        $this->courier->setConsignment($this);
+        return $this->courier->prepareConsignment($this)->updateDispatchBatchFile();
     }
-
-    /**
-     * Get the consignment items details
-     * Calling from Courier
-     * @return mixed
-     */
-    public function getItems()
-    {
-        return $this->items;
-    }
-
-    /**
-     * Get delivery data
-     * Calling from Courier
-     * @return mixed
-     */
-    public function getDeliveryDetails()
-    {
-        return $this->order->getDeliveryDetails();
-    }
-
-
 
 }
