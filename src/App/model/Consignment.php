@@ -8,6 +8,9 @@ use App\OrderItem;
 use App\Product;
 use App\ProductVariant;
 use App\Dx;
+use App\Anc;
+use App\Royalmail;
+use App\Furdeco;
 use App\Notification;
 
 class Consignment
@@ -29,6 +32,12 @@ class Consignment
      * @var float
      */
     private $total_weight;
+
+    /**
+     * Total parcels of consignment
+     * @var float
+     */
+    private $total_parcels;
 
     /**
      * @var Courier|null
@@ -139,7 +148,7 @@ class Consignment
         foreach($this->items as $k=>$i){
             $this->total_weight += $i['weight'];
         }
-        $total_parcels = ($k+1);
+        $this->total_parcels = ($k+1);
     }
 
     /**
@@ -150,9 +159,27 @@ class Consignment
     private function setCourier()
     {
         // In here I have assigned Dx;
-        // TODO the logic of assigning a particular courier from a list is goes here
-        $this->courier = new Dx();
+        $this->courier = $this->chooseCourier();
     }
+
+    private function chooseCourier()
+    {
+        // TODO the logic of assigning a particular courier from a list is goes here
+        // It may depending on the weight, metric volume, and/or postcode,..
+        $courier = ['Dx', 'Royalmail', 'Furdeco', 'Anc'];
+        $rand_keys = array_rand($courier);
+        switch($rand_keys[0]){
+            case 'Dx':
+                return new Dx();
+            case 'Royalmail':
+                return new Royalmail();
+            case 'Anc':
+                return new Anc();
+            case 'Furdeco':
+                return new Furdeco();
+        }
+    }
+
 
     /**
      * This save consignment data in the database

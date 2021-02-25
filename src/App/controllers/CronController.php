@@ -3,8 +3,8 @@
 namespace App;
 
 use DateTime;
-use Dispatch;
-use Order;
+use App\Dispatch;
+use App\Order;
 
 
 /**
